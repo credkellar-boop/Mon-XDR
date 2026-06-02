@@ -45,3 +45,22 @@ func main() {
 		}
 	}
 }
+
+import (
+    "github.com/prometheus/client_golang/prometheus"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+var (
+    threatsDetected = prometheus.NewCounter(prometheus.CounterOpts{
+        Name: "monedr_threats_detected_total",
+        Help: "Total number of malicious threats detected by Gemini",
+    })
+)
+
+func init() {
+    prometheus.MustRegister(threatsDetected)
+}
+
+// Inside your worker logic, when a threat is found:
+// threatsDetected.Inc()
