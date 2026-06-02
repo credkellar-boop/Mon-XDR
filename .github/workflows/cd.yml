@@ -1,0 +1,53 @@
+name: Continuous Deployment
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Triggers when you push a version tag, e.g., v1.0.0
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-images:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Log in to the Container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+    - name: Build and push Agent Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: Dockerfile.agent
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-agent:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-agent:${{ github.ref_name }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+    - name: Build and push Worker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: Dockerfile.worker
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-worker:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-worker:${{ github.ref_name }}
+        labels: ${{ steps.meta.outputs.labels }}
