@@ -1,0 +1,41 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"golang.org/x/time/rate"
+)
+
+// Global Limiter: 10 requests per second with a burst of 5
+var limiter = rate.NewLimiter(10, 5)
+
+func worker(id int, queue <-chan TelemetryPayload) {
+	for job := range queue {
+		// Wait blocks until a token is available, respecting our API quota
+		err := limiter.Wait(context.Background())
+		if err != nil {
+			fmt.Printf("Worker %d: Rate limiter error: %v\n", id, err)
+			continue
+		}
+
+		// Perform the Gemini API call
+		result, err := callGemini(job)
+		if err != nil {
+			fmt.Printf("Worker %d: Gemini analysis failed: %v\n", id, err)
+			// Handle retry logic here (e.g., exponential backoff)
+			continue
+		}
+
+		fmt.Printf("Worker %d: Successfully analyzed event: %s\n", id, result)
+	}
+}
+
+func main() {
+	// Start 5 concurrent worker routines
+	for i := 1; i <= 5; i++ {
+		go worker(i, TelemetryQueue)
+	}
+	// ... setup HTTP listener ...
+}
