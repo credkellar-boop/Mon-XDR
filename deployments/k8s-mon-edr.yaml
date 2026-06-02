@@ -1,27 +1,55 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: mon-edr-worker
+  name: mon-xdr-agent
+  labels:
+    app: mon-xdr-agent
 spec:
-  replicas: 3 # Scale workers horizontally
   selector:
     matchLabels:
-      app: mon-edr-worker
+      app: mon-xdr-agent
   template:
     metadata:
       labels:
-        app: mon-edr-worker
+        app: mon-xdr-agent
+    spec:
+      containers:
+      - name: agent
+        image: credkellar-boop/mon-xdr-agent:latest
+        imagePullPolicy: Always
+        env:
+        - name: QUEUE_URL
+          value: "amqp://guest:guest@rabbitmq-service:5672/"
+        # Agents usually need elevated privileges to read host telemetry
+        securityContext:
+          privileged: true
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mon-xdr-worker
+  labels:
+    app: mon-xdr-worker
+spec:
+  replicas: 3 # Scale this up to handle higher telemetry throughput
+  selector:
+    matchLabels:
+      app: mon-xdr-worker
+  template:
+    metadata:
+      labels:
+        app: mon-xdr-worker
     spec:
       containers:
       - name: worker
-        image: mon-edr/worker:latest
+        image: credkellar-boop/mon-xdr-worker:latest
+        imagePullPolicy: Always
         env:
         - name: GEMINI_API_KEY
           valueFrom:
             secretKeyRef:
-              name: mon-edr-secrets
-              key: gemini-key
-        resources:
-          limits:
-            cpu: "500m"
-            memory: "512Mi"
+              name: gemini-secret
+              key: api-key
+        - name: QUEUE_URL
+          value: "amqp://guest:guest@rabbitmq-service:5672/"
