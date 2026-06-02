@@ -1,32 +1,56 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
+# ------------------------------------------------------------------------------
+# Go & Build Artifacts
+# ------------------------------------------------------------------------------
+# Ignore compiled binaries (assuming 'mon-agent' and 'mon-worker' output names)
+mon-agent
+mon-worker
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
-
-# Code coverage profiles and other test artifacts
 *.out
-coverage.*
-*.coverprofile
-profile.cov
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
 
 # Go workspace file
 go.work
 go.work.sum
 
-# env file
+# ------------------------------------------------------------------------------
+# Secrets & Environment Variables (CRITICAL)
+# ------------------------------------------------------------------------------
+# Ignore local environment files containing API keys and database credentials
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.p12
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# Ignore any encrypted sovereign state or Black Folder payload staging
+/blackfolder/
+*.encrypted
+*.gpg
+
+# ------------------------------------------------------------------------------
+# IDEs & Editors
+# ------------------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ------------------------------------------------------------------------------
+# Logs & Telemetry Data
+# ------------------------------------------------------------------------------
+*.log
+/logs/
+/data/
+
+# Ignore local queue or database dumps
+*.rdb
+*.sqlite
+*.db
