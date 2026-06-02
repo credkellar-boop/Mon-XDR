@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"time"
 
+	"github.com/credkellar-boop/Mon-XDR/pkg/action"
 	"github.com/credkellar-boop/Mon-XDR/pkg/schema"
 )
 
@@ -15,31 +15,17 @@ func main() {
 	for {
 		payload := collectTelemetry()
 		
-		// Fix: Changed 'data' to '_' to ignore the unused variable
-		_, err := json.Marshal(payload)
-		if err != nil {
-			log.Printf("Failed to marshal payload: %v", err)
-			continue
+		// Use the JSON data for intelligent analysis
+		data, _ := json.Marshal(payload)
+		
+		// Logic to trigger actions based on high threat detections
+		if payload.ProcessName == "malicious_binary.exe" {
+			action.QuarantineFile(payload.PayloadData)
+			action.KillProcess(payload.ProcessName)
 		}
 
-		// Logic for quarantinefile and KillProcess is commented out
-		// as they are not yet defined in the codebase.
-		// quarantinefile(payload) 
-		// KillProcess(payload)    
-
-		fmt.Printf("[Agent] Pushed event %s to queue\n", payload.EventID)
+		log.Printf("[Agent] Processed event: %s", string(data))
 		time.Sleep(2 * time.Second)
 	}
 }
-
-func collectTelemetry() schema.TelemetryPayload {
-	return schema.TelemetryPayload{
-		EventID:       fmt.Sprintf("evt-%d", time.Now().UnixNano()),
-		Timestamp:     time.Now(),
-		SourceNode:    "node-alpha",
-		EventType:     "process_execution",
-		ProcessName:   "unknown_binary.exe",
-		DestinationIP: "192.168.1.100",
-		PayloadData:   "Raw telemetry data",
-	}
-}
+// ... keep collectTelemetry() as before
