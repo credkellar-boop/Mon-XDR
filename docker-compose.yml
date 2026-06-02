@@ -1,0 +1,9 @@
+version: '3.8'
+services:
+  redis:             # The queue that connects everyone
+    image: redis:alpine
+  worker:            # The brain (calls Gemini)
+    build: .
+    command: ./cmd/worker/main
+    depends_on:
+      - redis
