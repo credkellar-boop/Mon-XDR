@@ -1,9 +1,37 @@
 version: '3.8'
+
 services:
-  redis:             # The queue that connects everyone
-    image: redis:alpine
-  worker:            # The brain (calls Gemini)
-    build: .
-    command: ./cmd/worker/main
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: mon-xdr-queue
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: mon-xdr-agent
+    environment:
+      - QUEUE_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
-      - redis
+      rabbitmq:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: mon-xdr-worker
+    environment:
+      - QUEUE_URL=amqp://guest:guest@rabbitmq:5672/
+      - GEMINI_API_KEY=${GEMINI_API_KEY} # Make sure to export this in your local terminal
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
