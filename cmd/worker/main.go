@@ -76,3 +76,21 @@ func processMessage(ctx context.Context, analyzer *gemini.Analyzer, msg []byte) 
 		log.Printf("[SUPPRESSED] Fraudulent or benign alert blocked. EventID: %s", result.EventID)
 	}
 }
+
+package main
+
+import (
+    "github.com/credkellar-boop/Mon-XDR/pkg/ratelimit"
+    // ... other imports
+)
+
+func main() {
+    for {
+        // Enforce rate limiting BEFORE processing
+        ratelimit.Wait() 
+
+        payload := collectTelemetry()
+        // ... rest of your logic
+    }
+}
+
