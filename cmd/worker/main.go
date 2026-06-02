@@ -94,3 +94,17 @@ func main() {
     }
 }
 
+func processMessage(ctx context.Context, analyzer *gemini.Analyzer, store *db.Store, msg []byte) {
+	var payload schema.TelemetryPayload
+	json.Unmarshal(msg, &payload)
+
+	// Check if this process is known-good
+	if store.IsWhitelisted(payload.ProcessName) {
+		log.Printf("[SKIPPED] Known-good process detected: %s", payload.ProcessName)
+		return
+	}
+
+	// Only call Gemini if the process is not whitelisted
+	result, err := analyzer.AnalyzeTelemetry(ctx, payload)
+	// ... continue with analysis logic
+}
