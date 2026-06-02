@@ -1,0 +1,10 @@
+# Build Stage
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+COPY . .
+RUN go build -o worker ./cmd/worker
+
+# Final Stage
+FROM alpine:latest
+COPY --from=builder /app/worker /usr/local/bin/worker
+ENTRYPOINT ["worker"]
