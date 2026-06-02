@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mon-edr-worker
+spec:
+  replicas: 3 # Scale workers horizontally
+  selector:
+    matchLabels:
+      app: mon-edr-worker
+  template:
+    metadata:
+      labels:
+        app: mon-edr-worker
+    spec:
+      containers:
+      - name: worker
+        image: mon-edr/worker:latest
+        env:
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mon-edr-secrets
+              key: gemini-key
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
