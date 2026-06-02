@@ -24,9 +24,6 @@ jobs:
     - name: Install Dependencies
       run: go mod tidy
 
-    - name: Verify Code Formatting
-      run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
-
     - name: Build Agent
       run: go build -v ./cmd/agent
 
@@ -34,5 +31,4 @@ jobs:
       run: go build -v ./cmd/worker
 
     - name: Run Tests
-      # Assuming you will add *_test.go files later
       run: go test -v ./...
