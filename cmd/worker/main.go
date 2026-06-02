@@ -5,62 +5,74 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/go-redis/redis/v8" // You'll need this dependency
-	"your-project/pkg/gemini"      // Your Gemini wrapper
-	"your-project/pkg/schema"      // The struct shared by Agent/Cloud
+	"github.com/credkellar-boop/Mon-XDR/kg/gemini"
+	"github.com/credkellar-boop/Mon-XDR/pkg/schema"
 )
-
-var ctx = context.Background()
 
 func main() {
-	// 1. Connect to Redis (The Queue)
-	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+	log.Println("Starting Mon-XDR Worker...")
 
-	log.Println("Worker started: Listening for telemetry...")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	for {
-		// 2. Pop the payload from the queue (Blocking pop)
-		result, err := rdb.BLPop(ctx, 0, "telemetry_queue").Result()
-		if err != nil {
-			log.Printf("Queue error: %v", err)
-			continue
+	// Initialize the Gemini Analyzer
+	analyzer, err := gemini.NewAnalyzer(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize Gemini analyzer: %v", err)
+	}
+	defer analyzer.Close()
+
+	// TODO: Initialize your queue consumer here
+	// e.g., consumer := InitQueueConsumer("telemetry_topic")
+	// msgs := consumer.Consume()
+
+	// Simulated incoming message channel for demonstration
+	msgs := make(chan []byte)
+
+	// Graceful shutdown handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-msgs:
+				processMessage(ctx, analyzer, msg)
+			}
 		}
+	}()
 
-		var payload schema.TelemetryPayload
-		json.Unmarshal([]byte(result[1]), &payload)
+	<-sigChan
+	log.Println("Shutting down worker gracefully...")
+}
 
-		// 3. Send to Gemini (The Brain)
-		verdict, err := gemini.Analyze(payload)
-		if err != nil {
-			log.Printf("Gemini analysis error: %v", err)
-			// Handle: Push to Dead Letter Queue if failed
-			continue
-		}
+func processMessage(ctx context.Context, analyzer *gemini.Analyzer, msg []byte) {
+	var payload schema.TelemetryPayload
+	if err := json.Unmarshal(msg, &payload); err != nil {
+		log.Printf("Worker failed to parse message: %v", err)
+		return
+	}
 
-		// 4. Act on the result
-		if verdict.IsMalicious {
-			log.Printf("CRITICAL THREAT DETECTED: %s", payload.AgentID)
-			// Trigger automated response here
-		}
+	// Send to Gemini for cross-domain analysis
+	result, err := analyzer.AnalyzeTelemetry(ctx, payload)
+	if err != nil {
+		log.Printf("AI Analysis failed for event %s: %v", payload.EventID, err)
+		return
+	}
+
+	// Logic to aggressively filter and neutralize threats or fraudulent alerts
+	if result.IsZeroDay || result.ThreatLevel > 0.8 {
+		log.Printf("[ALERT] High Threat Detected! EventID: %s | ZeroDay: %v | ThreatLevel: %.2f", 
+			result.EventID, result.IsZeroDay, result.ThreatLevel)
+		log.Printf("Explanation: %s", result.Explanation)
+		// TODO: Trigger orchestration response (e.g., isolate node, kill process)
+	} else {
+		// Suppress fraudulent/benign alerts to keep the pipeline clean
+		log.Printf("[SUPPRESSED] Fraudulent or benign alert blocked. EventID: %s", result.EventID)
 	}
 }
-
-import (
-    "github.com/prometheus/client_golang/prometheus"
-    "github.com/prometheus/client_golang/prometheus/promhttp"
-)
-
-var (
-    threatsDetected = prometheus.NewCounter(prometheus.CounterOpts{
-        Name: "monedr_threats_detected_total",
-        Help: "Total number of malicious threats detected by Gemini",
-    })
-)
-
-func init() {
-    prometheus.MustRegister(threatsDetected)
-}
-
-// Inside your worker logic, when a threat is found:
-// threatsDetected.Inc()
