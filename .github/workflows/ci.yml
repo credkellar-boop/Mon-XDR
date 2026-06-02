@@ -1,0 +1,38 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: Build and Test Go Code
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+        cache: true
+
+    - name: Install Dependencies
+      run: go mod tidy
+
+    - name: Verify Code Formatting
+      run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
+
+    - name: Build Agent
+      run: go build -v ./cmd/agent
+
+    - name: Build Worker
+      run: go build -v ./cmd/worker
+
+    - name: Run Tests
+      # Assuming you will add *_test.go files later
+      run: go test -v ./...
