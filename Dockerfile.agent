@@ -1,0 +1,31 @@
+# --- Build Stage ---
+FROM golang:1.22-alpine AS builder
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy the Go module files and download dependencies
+# (Running this before copying the rest of the code caches dependencies)
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the rest of the repository
+COPY . .
+
+# Build the agent binary
+# Assumes your agent's main.go is located at cmd/agent/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o mon-agent ./cmd/agent
+
+# --- Run Stage ---
+FROM alpine:latest
+
+WORKDIR /root/
+
+# Add CA certificates (needed if the agent makes HTTPS calls to the Gemini API)
+RUN apk --no-cache add ca-certificates
+
+# Copy the pre-built binary from the builder stage
+COPY --from=builder /app/mon-agent .
+
+# Command to run the executable
+CMD ["./mon-agent"]
