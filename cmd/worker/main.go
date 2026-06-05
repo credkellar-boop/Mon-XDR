@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/google/generative-ai-go/genai"
-	"google.com/api/option"
+	"google.golang.org/api/option" // <-- FIXED: Correct Google API import path
 
 	"github.com/credkellar-boop/Mon-XDR/pkg/schema"
 )
