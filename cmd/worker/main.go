@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/google/generative-ai-go/genai"
-	"google.golang.org/api/option" // <-- FIXED: Correct Google API import path
+	"google.golang.org/api/option"
 
 	"github.com/credkellar-boop/Mon-XDR/pkg/schema"
 )
@@ -28,11 +28,9 @@ func NewAnalyzer(ctx context.Context) (*GeminiAnalyzer, error) {
 		return nil, err
 	}
 
-	// Correctly specify settings via the GenerationConfig field structure
 	model := client.GenerativeModel("gemini-1.5-flash")
-	model.GenerationConfig = genai.GenerationConfig{
-		ResponseMIMEType: "application/json",
-	}
+	// We are intentionally omitting GenerationConfig here to avoid version mismatch errors.
+	// JSON formatting will be strictly enforced via the prompt instructions instead.
 
 	return &GeminiAnalyzer{
 		client: client,
@@ -48,7 +46,9 @@ func (ga *GeminiAnalyzer) Close() {
 
 // AnalyzeTelemetry sends the event message string to Gemini for automated threat categorization
 func (ga *GeminiAnalyzer) AnalyzeTelemetry(ctx context.Context, data string) (string, error) {
-	prompt := "Analyze this endpoint telemetry log for security threats. Return a JSON structure with fields: 'isZeroDay' (bool), 'threatLevel' (float 0.0-1.0), and 'explanation' (string):\n" + data
+	// Updated prompt to strictly enforce raw JSON without markdown blocks, replacing the need for ResponseMIMEType
+	prompt := "Analyze this endpoint telemetry log for security threats. Return ONLY a raw, valid JSON structure with fields: 'isZeroDay' (bool), 'threatLevel' (float 0.0-1.0), and 'explanation' (string). Do not include any markdown formatting, backticks, or other text:\n" + data
+	
 	resp, err := ga.model.GenerateContent(ctx, genai.Text(prompt))
 	if err != nil {
 		return "", err
