@@ -8,9 +8,59 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/credkellar-boop/Mon-XDR/kg/gemini"
+	"github.com/google/generative-ai-go/genai"
+	"google.com/api/option"
+
 	"github.com/credkellar-boop/Mon-XDR/pkg/schema"
 )
+
+// GeminiAnalyzer wraps the Google GenAI Client and Model configuration
+type GeminiAnalyzer struct {
+	client *genai.Client
+	model  *genai.GenerativeModel
+}
+
+// NewAnalyzer initializes the Gemini client with the required execution options
+func NewAnalyzer(ctx context.Context) (*GeminiAnalyzer, error) {
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	if err != nil {
+		return nil, err
+	}
+
+	// Correctly specify settings via the GenerationConfig field structure
+	model := client.GenerativeModel("gemini-1.5-flash")
+	model.GenerationConfig = genai.GenerationConfig{
+		ResponseMIMEType: "application/json",
+	}
+
+	return &GeminiAnalyzer{
+		client: client,
+		model:  model,
+	}, nil
+}
+
+func (ga *GeminiAnalyzer) Close() {
+	if ga.client != nil {
+		ga.client.Close()
+	}
+}
+
+// AnalyzeTelemetry sends the event message string to Gemini for automated threat categorization
+func (ga *GeminiAnalyzer) AnalyzeTelemetry(ctx context.Context, data string) (string, error) {
+	prompt := "Analyze this endpoint telemetry log for security threats. Return a JSON structure with fields: 'isZeroDay' (bool), 'threatLevel' (float 0.0-1.0), and 'explanation' (string):\n" + data
+	resp, err := ga.model.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Candidates) > 0 && resp.Candidates[0].Content != nil && len(resp.Candidates[0].Content.Parts) > 0 {
+		if textPart, ok := resp.Candidates[0].Content.Parts[0].(genai.Text); ok {
+			return string(textPart), nil
+		}
+	}
+	return "{}", nil
+}
 
 func main() {
 	log.Println("Starting Mon-XDR Worker...")
@@ -18,21 +68,15 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Initialize the Gemini Analyzer
-	analyzer, err := gemini.NewAnalyzer(ctx)
+	analyzer, err := NewAnalyzer(ctx)
 	if err != nil {
 		log.Fatalf("Failed to initialize Gemini analyzer: %v", err)
 	}
 	defer analyzer.Close()
 
-	// TODO: Initialize your queue consumer here
-	// e.g., consumer := InitQueueConsumer("telemetry_topic")
-	// msgs := consumer.Consume()
-
-	// Simulated incoming message channel for demonstration
+	// Simulated incoming message channel
 	msgs := make(chan []byte)
 
-	// Graceful shutdown handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -51,60 +95,35 @@ func main() {
 	log.Println("Shutting down worker gracefully...")
 }
 
-func processMessage(ctx context.Context, analyzer *gemini.Analyzer, msg []byte) {
+func processMessage(ctx context.Context, analyzer *GeminiAnalyzer, msg []byte) {
 	var payload schema.TelemetryPayload
 	if err := json.Unmarshal(msg, &payload); err != nil {
 		log.Printf("Worker failed to parse message: %v", err)
 		return
 	}
 
-	// Send to Gemini for cross-domain analysis
-	result, err := analyzer.AnalyzeTelemetry(ctx, payload)
+	payloadStr, _ := json.Marshal(payload)
+	resultStr, err := analyzer.AnalyzeTelemetry(ctx, string(payloadStr))
 	if err != nil {
-		log.Printf("AI Analysis failed for event %s: %v", payload.EventID, err)
+		log.Printf("AI Analysis failed for event: %v", err)
 		return
 	}
 
-	// Logic to aggressively filter and neutralize threats or fraudulent alerts
+	var result struct {
+		IsZeroDay   bool    `json:"isZeroDay"`
+		ThreatLevel float64 `json:"threatLevel"`
+		Explanation string  `json:"explanation"`
+	}
+
+	if err := json.Unmarshal([]byte(resultStr), &result); err != nil {
+		log.Printf("Failed to decode AI response analysis: %v", err)
+		return
+	}
+
 	if result.IsZeroDay || result.ThreatLevel > 0.8 {
-		log.Printf("[ALERT] High Threat Detected! EventID: %s | ZeroDay: %v | ThreatLevel: %.2f", 
-			result.EventID, result.IsZeroDay, result.ThreatLevel)
+		log.Printf("[ALERT] High Threat Detected! ZeroDay: %t | ThreatLevel: %.2f", result.IsZeroDay, result.ThreatLevel)
 		log.Printf("Explanation: %s", result.Explanation)
-		// TODO: Trigger orchestration response (e.g., isolate node, kill process)
 	} else {
-		// Suppress fraudulent/benign alerts to keep the pipeline clean
-		log.Printf("[SUPPRESSED] Fraudulent or benign alert blocked. EventID: %s", result.EventID)
+		log.Printf("[SUPPRESSED] Fraudulent or benign alert filtered.")
 	}
-}
-
-package main
-
-import (
-    "github.com/credkellar-boop/Mon-XDR/pkg/ratelimit"
-    // ... other imports
-)
-
-func main() {
-    for {
-        // Enforce rate limiting BEFORE processing
-        ratelimit.Wait() 
-
-        payload := collectTelemetry()
-        // ... rest of your logic
-    }
-}
-
-func processMessage(ctx context.Context, analyzer *gemini.Analyzer, store *db.Store, msg []byte) {
-	var payload schema.TelemetryPayload
-	json.Unmarshal(msg, &payload)
-
-	// Check if this process is known-good
-	if store.IsWhitelisted(payload.ProcessName) {
-		log.Printf("[SKIPPED] Known-good process detected: %s", payload.ProcessName)
-		return
-	}
-
-	// Only call Gemini if the process is not whitelisted
-	result, err := analyzer.AnalyzeTelemetry(ctx, payload)
-	// ... continue with analysis logic
 }
