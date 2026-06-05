@@ -14,11 +14,11 @@ func main() {
 
 	for {
 		payload := collectTelemetry()
-		
+
 		// Use the JSON data for intelligent analysis
 		data, _ := json.Marshal(payload)
-		
-		// Logic to trigger actions based on high threat detections
+
+		// Logic to trigger actions based on high threat score
 		if payload.ProcessName == "malicious_binary.exe" {
 			action.QuarantineFile(payload.PayloadData)
 			action.KillProcess(payload.ProcessName)
