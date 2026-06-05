@@ -12,6 +12,7 @@ func ListenForCommands(serverURL string) {
 	if err != nil {
 		log.Fatalf("Connection to backend failed: %v", err)
 	}
+	defer conn.Close()
 
 	for {
 		var cmd struct {
@@ -26,7 +27,7 @@ func ListenForCommands(serverURL string) {
 			break
 		}
 
-		// Execute the command locally
+		// Execute the command locally using the exported public actions
 		switch cmd.Action {
 		case "QUARANTINE":
 			action.QuarantineFile(cmd.Path)
