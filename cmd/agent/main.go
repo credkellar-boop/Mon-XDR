@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/credkellar-boop/Mon-XDR/pkg/action"
-	"github.com/credkellar-boop/Mon-XDR/pkg/schema"
 )
 
 func main() {
@@ -28,4 +27,3 @@ func main() {
 		time.Sleep(2 * time.Second)
 	}
 }
-// ... keep collectTelemetry() as before
