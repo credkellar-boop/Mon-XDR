@@ -1,8 +1,10 @@
 package ratelimit
 
 import (
-	"golang.org/x/time/rate"
+	"context"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // GlobalLimiter allows 100 events per second, with a burst capacity of 200.
