@@ -2,8 +2,7 @@ package action
 
 import (
 	"context"
-	
-	// The "fmt" import has been removed from line 4 to resolve exit code 1
+
 	"github.com/credkellar-boop/Mon-XDR/pkg/schema"
 )
 
@@ -17,13 +16,13 @@ func NewExecutor() *Executor {
 	return &Executor{}
 }
 
-// Execute processes an action using the provided context and schema.
+// Execute processes an action using the provided context and schema Action.
 func (e *Executor) Execute(ctx context.Context, actionData schema.Action) error {
 	// Your execution logic goes here.
-	
-	// Note: If you need to log information without triggering unused import
-	// errors during testing, consider using the "log" package or a dedicated
-	// structured logger instead of "fmt".
-	
+
+	// Note: If you need to log information without triggering unused 
+	// errors during testing, consider using the "log" package or a
+	// structured logger instead.
+
 	return nil
 }
