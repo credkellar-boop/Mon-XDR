@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/credkellar-boop/Mon-XDR/pkg/action"
+	"github.com/credkellar-boop/Mon-XDR/pkg/schema"
 )
 
 func main() {
@@ -25,5 +26,15 @@ func main() {
 
 		log.Printf("[Agent] Processed event: %s", string(data))
 		time.Sleep(2 * time.Second)
+	}
+}
+
+// collectTelemetry gathers system events and maps them to your XDR schema.
+// This definition resolves the compiler's "undefined: collectTelemetry" error.
+func collectTelemetry() schema.TelemetryPayload {
+	// TODO: Replace this stub with your actual system telemetry/monitoring hooks
+	return schema.TelemetryPayload{
+		ProcessName: "safe_process.exe",
+		PayloadData: "/usr/local/bin/safe_process",
 	}
 }
